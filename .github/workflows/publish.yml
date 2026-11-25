@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "scripts/**"
+      - "source/**"
+      - "scripts/build_site.py"
       - ".github/workflows/publish.yml"
-      - "site/**"
   workflow_dispatch:
 
 concurrency:
@@ -20,26 +20,36 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Validate migration script
-        run: python3 -m py_compile scripts/import_site.py
-      - name: Import or validate the independent CAD build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+      - name: Install pinned dependencies
+        working-directory: source
+        run: npm ci
+      - name: Verify engine lifecycle and precise geometry
+        working-directory: source
         run: |
-          python3 scripts/import_site.py
-          mkdir -p site/assets
-          cp index.html site/index.html
-          cp -R assets/. site/assets/
-          touch site/.nojekyll
-      - name: Keep an independent copy in this repository
+          npm run check
+          npm run test:engine
+          npm run test:geometry
+          npm run test:slices
+      - name: Build CAD website
+        working-directory: source
+        run: npm run build -- --base=./
+      - name: Prepare independent Pages files
+        run: python3 scripts/build_site.py
+      - name: Save published build in this repository
         run: |
           git add site migration-manifest.json index.html assets .nojekyll
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "Store validated CAD static website"
+            git commit -m "Store verified CAD build"
             git push origin HEAD:main
           fi
-      - name: Upload website
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
@@ -66,6 +76,7 @@ jobs:
         run: |
           import hashlib
           import json
+          import os
           import time
           import urllib.request
           from pathlib import Path
@@ -73,7 +84,7 @@ jobs:
           for path, expected in files.items():
               for attempt in range(12):
                   try:
-                      url = "https://anney0117.github.io/" + path + "?cad_verify=18edba49"
+                      url = "https://anney0117.github.io/" + path + "?verify=" + os.environ["GITHUB_SHA"]
                       request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
                       with urllib.request.urlopen(request, timeout=60) as response:
                           actual = response.read(32 * 1024 * 1024)

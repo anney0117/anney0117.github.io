@@ -1,0 +1,25 @@
+{
+  "name": "precision-cad",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "check": "tsc --noEmit",
+    "postinstall": "node scripts/patch-replicad.mjs",
+    "test:geometry": "esbuild tests/primitives.ts --bundle --platform=node --format=esm --packages=external --outfile=tests/primitives.run.mjs && node tests/primitives.run.mjs",
+    "test:slices": "esbuild tests/slices.ts --bundle --platform=node --format=esm --packages=external --outfile=tests/slices.run.mjs && node tests/slices.run.mjs",
+    "test:engine": "esbuild tests/engine.ts --bundle --platform=node --format=esm --packages=external --outfile=tests/engine.run.mjs && node tests/engine.run.mjs"
+  },
+  "dependencies": {
+    "replicad": "1.2.1",
+    "replicad-opencascadejs": "1.2.1",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0",
+    "typescript": "^5.9.0",
+    "@types/three": "^0.180.0"
+  }
+}
