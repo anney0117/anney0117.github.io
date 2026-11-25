@@ -8,6 +8,7 @@ import {downloadEngine} from '../src/engine-loader';
 import {CadClient} from '../src/cad-client';
 import {clone,demo} from '../src/model';
 import {makePrimitive} from '../src/primitives';
+import {ENGINE_BYTES,readEngineCache,saveEngineCache,discardEngineCache} from '../src/engine-cache';
 
 class FakeWorker {
  messages:any[]=[];terminated=false;
@@ -70,9 +71,35 @@ try{
  console.log('Real HTTP chunk progress, HTTP errors, invalid engine bytes and stalled download timeout passed.');
 }finally{server.closeAllConnections();server.close();}
 
+const cacheEntries=new Map<string,Response>();
+const cacheStorage={open:async()=>({
+ match:async(url:string)=>cacheEntries.get(url)?.clone(),
+ put:async(url:string,response:Response)=>{cacheEntries.set(url,response.clone());},
+ delete:async(url:string)=>cacheEntries.delete(url),
+})} as unknown as CacheStorage;
+const engineUrl='https://example.test/assets/engine-v1.wasm';
+assert.equal(await readEngineCache(engineUrl,8,cacheStorage),null,'first visit is a cache miss');
+assert.equal(await saveEngineCache(engineUrl,new Uint8Array(emptyModule),cacheStorage),true);
+assert.deepEqual(Buffer.from((await readEngineCache(engineUrl,8,cacheStorage))!),emptyModule,'next visit reuses the exact saved binary');
+assert.equal(await readEngineCache(engineUrl.replace('v1','v2'),8,cacheStorage),null,'a new engine URL cannot reuse an old version');
+assert.equal(await readEngineCache(engineUrl,9,cacheStorage),null,'discard partial cached files');
+assert.equal(cacheEntries.has(engineUrl),false);
+cacheEntries.set(engineUrl,new Response(new Uint8Array(8)));
+assert.equal(await readEngineCache(engineUrl,8,cacheStorage),null,'discard a non-wasm cache entry');
+const deniedStorage={open:async()=>{throw new Error('quota or privacy restriction');}} as unknown as CacheStorage;
+assert.equal(await readEngineCache(engineUrl,8,deniedStorage),null,'cache restrictions permit normal network loading');
+assert.equal(await saveEngineCache(engineUrl,new Uint8Array(emptyModule),deniedStorage),false,'cache failure does not fail the engine');
+assert.equal(await readEngineCache(engineUrl,8,undefined),null);
+assert.equal(await saveEngineCache(engineUrl,new Uint8Array(emptyModule),undefined),false);
+await saveEngineCache(engineUrl,new Uint8Array(emptyModule),cacheStorage);await discardEngineCache(engineUrl,cacheStorage);
+assert.equal(cacheEntries.has(engineUrl),false);
+console.log('Cache reuse, engine version separation, corrupt/partial entries and unavailable storage passed.');
+
 // Exercise the custom instantiation path against the real OCCT binary.
 const require=createRequire(import.meta.url);
-const module=await WebAssembly.compile(readFileSync(require.resolve('replicad-opencascadejs/wasm')));
+const actualEngine=readFileSync(require.resolve('replicad-opencascadejs/wasm'));
+assert.equal(actualEngine.length,ENGINE_BYTES,'reported engine size matches the pinned real binary');
+const module=await WebAssembly.compile(actualEngine);
 const oc=await initOC({instantiateWasm:(imports:WebAssembly.Imports,receive:(instance:WebAssembly.Instance)=>void)=>{
  const instance=new WebAssembly.Instance(module,imports);receive(instance);return instance.exports;
 }} as any);

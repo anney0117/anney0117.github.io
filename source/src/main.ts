@@ -81,11 +81,13 @@ function showLoader(message:string,retry=false){
 function handleEngineMessage(m:any){
  if(m.type==='progress'){
   let message='正在启动计算线程…';
-  if(m.phase==='download'){const downloaded=(m.loaded/1024/1024).toFixed(1);message=m.total?`正在下载建模引擎 ${downloaded} / ${(m.total/1024/1024).toFixed(1)} MB（${Math.floor(m.loaded/m.total*100)}%）`:`正在下载建模引擎，已下载 ${downloaded} MB`;}
-  if(m.phase==='compile')message='引擎已下载，正在初始化建模内核…';
+  if(m.phase==='cache')message='正在检查本机引擎缓存…';
+  if(m.phase==='saving')message='正在保存引擎到本机，供下次使用…';
+  if(m.phase==='download'){const downloaded=(m.loaded/1000000).toFixed(1);message=m.total?`正在下载建模引擎 ${downloaded} / ${(m.total/1000000).toFixed(1)} MB（${Math.floor(m.loaded/m.total*100)}%）`:`正在下载建模引擎，已下载 ${downloaded} MB`;}
+  if(m.phase==='compile')message=m.source==='cache'?'已从本机缓存读取引擎，正在初始化…':'引擎已下载，正在初始化建模内核…';
   showLoader(message);document.getElementById('engine-status')!.textContent=message;status(message);return;
  }
- if(m.type==='ready'){ready=true;document.getElementById('engine-status')!.innerHTML='<i></i>几何内核已就绪';return;}
+ if(m.type==='ready'){ready=true;app.dataset.engineSource=m.source;document.getElementById('engine-status')!.textContent=m.source==='cache'?'几何内核已就绪 · 来自本机缓存':m.cached?'几何内核已就绪 · 已保存本机缓存':'几何内核已就绪 · 浏览器未保存缓存';return;}
  if(m.type==='building'){showLoader('正在重建实体与三视图…');status('正在计算几何…');return;}
  if(m.type==='fatal'){busy=false;ready=false;document.getElementById('engine-status')!.textContent='建模引擎暂不可用';showLoader(m.message,true);status(m.message,'error');return;}
  if(m.type==='built'){if(m.id<lastBuild)return;busy=false;latestComplete=m.id;document.getElementById('loader')!.classList.add('hidden');updateModel(m);}

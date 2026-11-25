@@ -5,22 +5,39 @@ import {getSlices,type Document,type Feature} from './model';
 import {makePrimitive} from './primitives';
 import {applySlices} from './slice';
 import {downloadEngine} from './engine-loader';
+import {ENGINE_BYTES,readEngineCache,saveEngineCache,discardEngineCache} from './engine-cache';
 let loaded:Promise<void>|undefined;
 let currentShape:Shape3D|undefined;
 function init(){return loaded??=(async()=>{
  let lastProgress=0;
- const bytes=await downloadEngine(wasmUrl,p=>{
+ const storage=typeof caches==='undefined'?undefined:caches;
+ postMessage({type:'progress',phase:'cache'});
+ let bytes=await readEngineCache(wasmUrl,ENGINE_BYTES,storage);
+ let fromCache=bytes!==null;
+ const download=()=>downloadEngine(wasmUrl,p=>{
   const now=Date.now();
-  if(p.loaded===0||p.loaded===p.total||now-lastProgress>=100){lastProgress=now;postMessage({type:'progress',phase:'download',...p});}
+  if(p.loaded===0||p.loaded===p.total||now-lastProgress>=100){lastProgress=now;postMessage({type:'progress',phase:'download',...p,total:ENGINE_BYTES});}
  });
- postMessage({type:'progress',phase:'compile'});
- const module=await WebAssembly.compile(bytes);
+ if(!bytes)bytes=await download();
+ if(bytes.length!==ENGINE_BYTES)throw new Error('建模引擎下载不完整，请重试。');
+ postMessage({type:'progress',phase:'compile',source:fromCache?'cache':'network'});
+ let module:WebAssembly.Module;
+ try{module=await WebAssembly.compile(bytes);}catch(err){
+  if(!fromCache)throw err;
+  await discardEngineCache(wasmUrl,storage);fromCache=false;bytes=await download();
+  if(bytes.length!==ENGINE_BYTES)throw new Error('建模引擎下载不完整，请重试。');
+  postMessage({type:'progress',phase:'compile',source:'network'});
+  module=await WebAssembly.compile(bytes);
+ }
  // This generated OCCT factory supports instantiateWasm, but ignores wasmBinary.
  // Supplying the compiled module avoids a second download by the factory.
  const options={locateFile:()=>wasmUrl,instantiateWasm:(imports:WebAssembly.Imports,receive:(instance:WebAssembly.Instance,module:WebAssembly.Module)=>void)=>{
   const instance=new WebAssembly.Instance(module,imports);receive(instance,module);return instance.exports;
  }};
- const oc=await initOC(options);setOC(oc);postMessage({type:'ready'});
+ const oc=await initOC(options);setOC(oc);
+ let cached=fromCache;
+ if(!cached){postMessage({type:'progress',phase:'saving'});cached=await saveEngineCache(wasmUrl,bytes,storage);}
+ postMessage({type:'ready',source:fromCache?'cache':'network',cached});
 })()}
 function tool(f:Feature):Shape3D {return makePrimitive(f).translate(f.x,f.y,f.z)}
 function build(doc:Document):Shape3D { let shape=makePrimitive({kind:doc.baseKind??'box',width:doc.width,depth:doc.depth,height:doc.height,radius:doc.radius??20,topRadius:doc.topRadius,tubeRadius:doc.tubeRadius}); for(const f of doc.features){if(!f.enabled)continue;const operand=tool(f);shape=f.operation==='cut'?shape.cut(operand):f.operation==='fuse'?shape.fuse(operand):shape.intersect(operand);if(shape.isNull)throw new Error('布尔运算生成了空实体，请检查操作形体的位置与尺寸。')}

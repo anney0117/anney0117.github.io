@@ -36,7 +36,7 @@ export class CadClient {
     if(this.worker!==worker)return;
     const m=e.data as Message;
     if(m.type==='progress'){
-     this.arm(m.phase==='compile'?'建模引擎初始化超时，请重试，或关闭其他页面后再试。':'引擎下载暂时没有进展，请检查网络后重试。');
+     this.arm(m.phase==='compile'?'建模引擎初始化超时，请重试，或关闭其他页面后再试。':'建模引擎加载暂时没有进展，请检查网络后重试。');
      this.receive(m);return;
     }
     if(m.type==='ready'){
