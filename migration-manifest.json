@@ -2,16 +2,16 @@
   "source": "https://zhungou-cad-20261121.sacredanole21.chatgpt.site/",
   "files": {
     "index.html": {
-      "bytes": 1652,
-      "sha256": "0cde721ce8d7f1c12e534250f7b221223bbf3cee983ebed7838b4e377cd7f629"
+      "bytes": 538,
+      "sha256": "7591454fdd67e2abae8d3e40d47b019b1e224c18babd0d4f8dc3e910d1bc6554"
     },
     "assets/index-BpDz3mgR.js": {
       "bytes": 505498,
       "sha256": "f4a86e197e293f336cfbdba7562fb9a1bfb88e302042a48c944ba326e5c70c68"
     },
     "assets/index-DTXiJs5M.css": {
-      "bytes": 20100,
-      "sha256": "5739afd2b589f041c0324d2498a24cfa3319868e97354936bfa1354c6b7d6453"
+      "bytes": 20034,
+      "sha256": "74d9e581817540716e82ec3f198e7384c74e3f202c269daec6bc76d3bca16b24"
     },
     "assets/cad.worker-6KR23trK.js": {
       "bytes": 418286,
