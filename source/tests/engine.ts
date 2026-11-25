@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
+import {createHash} from 'node:crypto';
 import initOC from 'replicad-opencascadejs';
 import {setOC,measureVolume} from 'replicad';
 import {downloadEngine} from '../src/engine-loader';
 import {CadClient} from '../src/cad-client';
 import {clone,demo} from '../src/model';
 import {makePrimitive} from '../src/primitives';
-import {ENGINE_BYTES,readEngineCache,saveEngineCache,discardEngineCache} from '../src/engine-cache';
+import {ENGINE_BYTES,ENGINE_SHA256,readEngineCache,saveEngineCache,discardEngineCache} from '../src/engine-cache';
 
 class FakeWorker {
  messages:any[]=[];terminated=false;
@@ -52,11 +53,22 @@ assert.equal(recoveryEvents.at(-1).type,'built','retry can recover from a timed-
 console.log('Startup/build timeouts, recovery, latest input and stale worker isolation passed.');
 
 const emptyModule=Buffer.from([0,97,115,109,1,0,0,0]);
+const cancelled=new Set<string>();
 const server=createServer((req,res)=>{
  if(req.url==='/ok'){res.writeHead(200,{'Content-Length':8});res.write(emptyModule.subarray(0,4));setTimeout(()=>res.end(emptyModule.subarray(4)),5);}
  else if(req.url==='/http-error'){res.writeHead(503);res.end('unavailable');}
  else if(req.url==='/html'){res.end('<html>network error</html>');}
  else if(req.url==='/stall'){res.writeHead(200);res.flushHeaders();}
+ else if(req.url==='/race-fast'){
+  const timer=setTimeout(()=>res.end(emptyModule),15);res.on('close',()=>clearTimeout(timer));
+ }
+ else if(req.url==='/race-slow'){
+  res.write(emptyModule.subarray(0,4));res.on('close',()=>cancelled.add(req.url!));
+ }
+ else if(req.url==='/race-stall-prefix'){
+  res.write(Buffer.concat([emptyModule,Buffer.alloc(65536-8)]));res.on('close',()=>cancelled.add(req.url!));
+ }
+ else if(req.url==='/race-wrong')res.end(Buffer.from([0,97,115,109,1,0,0,1]));
 });
 await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
 const address=server.address() as {port:number};const base=`http://127.0.0.1:${address.port}`;
@@ -68,7 +80,27 @@ try{
  await assert.rejects(downloadEngine(base+'/http-error',()=>{},1000),/HTTP 503/);
  await assert.rejects(downloadEngine(base+'/html',()=>{},1000),/不完整/);
  await assert.rejects(downloadEngine(base+'/stall',()=>{},35),/下载超过/);
+ const expectedHash=createHash('sha256').update(emptyModule).digest('hex');
+ let selected:string[]=[];
+ assert.deepEqual(Buffer.from(await downloadEngine(base+'/race-fast',()=>{},1000,{
+  urls:[base+'/race-slow',base+'/race-fast'],sha256:expectedHash,selected:url=>selected.push(url),
+ })),emptyModule);
+ assert.deepEqual(selected,[base+'/race-fast'],'continue the first usable stream');
+ await new Promise(resolve=>setTimeout(resolve,10));
+ assert.ok(cancelled.has('/race-slow'),'cancel the losing connection');
+ selected=[];
+ assert.deepEqual(Buffer.from(await downloadEngine(base+'/race-fast',()=>{},1000,{
+  urls:[base+'/race-wrong',base+'/race-fast'],sha256:expectedHash,selected:url=>selected.push(url),
+ })),emptyModule);
+ assert.deepEqual(selected,[base+'/race-wrong',base+'/race-fast'],'reject a changed engine and fall back');
+ selected=[];
+ assert.deepEqual(Buffer.from(await downloadEngine(base+'/race-fast',()=>{},1000,{
+  urls:[base+'/race-stall-prefix',base+'/race-fast'],sha256:expectedHash,idleMs:40,selected:url=>selected.push(url),
+ })),emptyModule);
+ assert.deepEqual(selected,[base+'/race-stall-prefix',base+'/race-fast'],'recover if a selected stream later stops');
+ await assert.rejects(downloadEngine(base+'/race-wrong',()=>{},1000,{sha256:expectedHash}),/完整性校验失败/);
  console.log('Real HTTP chunk progress, HTTP errors, invalid engine bytes and stalled download timeout passed.');
+ console.log('First-data route selection, loser cancellation, integrity rejection and stalled-route fallback passed.');
 }finally{server.closeAllConnections();server.close();}
 
 const cacheEntries=new Map<string,Response>();
@@ -99,6 +131,7 @@ console.log('Cache reuse, engine version separation, corrupt/partial entries and
 const require=createRequire(import.meta.url);
 const actualEngine=readFileSync(require.resolve('replicad-opencascadejs/wasm'));
 assert.equal(actualEngine.length,ENGINE_BYTES,'reported engine size matches the pinned real binary');
+assert.equal(createHash('sha256').update(actualEngine).digest('hex'),ENGINE_SHA256,'mirror verification pins the exact current OCCT binary');
 const module=await WebAssembly.compile(actualEngine);
 const oc=await initOC({instantiateWasm:(imports:WebAssembly.Imports,receive:(instance:WebAssembly.Instance)=>void)=>{
  const instance=new WebAssembly.Instance(module,imports);receive(instance);return instance.exports;

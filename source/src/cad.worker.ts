@@ -5,7 +5,7 @@ import {getSlices,type Document,type Feature} from './model';
 import {makePrimitive} from './primitives';
 import {applySlices} from './slice';
 import {downloadEngine} from './engine-loader';
-import {ENGINE_BYTES,readEngineCache,saveEngineCache,discardEngineCache} from './engine-cache';
+import {ENGINE_BYTES,ENGINE_SHA256,readEngineCache,saveEngineCache,discardEngineCache} from './engine-cache';
 let loaded:Promise<void>|undefined;
 let currentShape:Shape3D|undefined;
 function init(){return loaded??=(async()=>{
@@ -14,10 +14,19 @@ function init(){return loaded??=(async()=>{
  postMessage({type:'progress',phase:'cache'});
  let bytes=await readEngineCache(wasmUrl,ENGINE_BYTES,storage);
  let fromCache=bytes!==null;
- const download=()=>downloadEngine(wasmUrl,p=>{
+ let delivery='';
+ const download=()=>{postMessage({type:'progress',phase:'connecting'});return downloadEngine(wasmUrl,p=>{
   const now=Date.now();
   if(p.loaded===0||p.loaded===p.total||now-lastProgress>=100){lastProgress=now;postMessage({type:'progress',phase:'download',...p,total:ENGINE_BYTES});}
- });
+ },180000,{
+  urls:[
+   wasmUrl,
+   'https://cdn.jsdmirror.com/npm/replicad-opencascadejs@1.2.1/dist/replicad_single.wasm',
+   'https://cdn.jsdelivr.net/npm/replicad-opencascadejs@1.2.1/dist/replicad_single.wasm',
+  ],
+  sha256:ENGINE_SHA256,
+  selected:url=>{delivery=url;},
+ });};
  if(!bytes)bytes=await download();
  if(bytes.length!==ENGINE_BYTES)throw new Error('建模引擎下载不完整，请重试。');
  postMessage({type:'progress',phase:'compile',source:fromCache?'cache':'network'});
@@ -37,7 +46,7 @@ function init(){return loaded??=(async()=>{
  const oc=await initOC(options);setOC(oc);
  let cached=fromCache;
  if(!cached){postMessage({type:'progress',phase:'saving'});cached=await saveEngineCache(wasmUrl,bytes,storage);}
- postMessage({type:'ready',source:fromCache?'cache':'network',cached});
+ postMessage({type:'ready',source:fromCache?'cache':'network',cached,delivery});
 })()}
 function tool(f:Feature):Shape3D {return makePrimitive(f).translate(f.x,f.y,f.z)}
 function build(doc:Document):Shape3D { let shape=makePrimitive({kind:doc.baseKind??'box',width:doc.width,depth:doc.depth,height:doc.height,radius:doc.radius??20,topRadius:doc.topRadius,tubeRadius:doc.tubeRadius}); for(const f of doc.features){if(!f.enabled)continue;const operand=tool(f);shape=f.operation==='cut'?shape.cut(operand):f.operation==='fuse'?shape.fuse(operand):shape.intersect(operand);if(shape.isNull)throw new Error('布尔运算生成了空实体，请检查操作形体的位置与尺寸。')}

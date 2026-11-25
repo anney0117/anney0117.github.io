@@ -1,5 +1,6 @@
 // Pinned replicad-opencascadejs 1.2.1 binary; checked against the real file in tests.
 export const ENGINE_BYTES=22942327;
+export const ENGINE_SHA256='a9335919fa64bfeaee3e241d3139ad134022682429c6688e20d8ca12093d33d9';
 const CACHE_NAME='zhungou-occt-v1';
 
 async function bounded<T>(operation:Promise<T>):Promise<T>{
