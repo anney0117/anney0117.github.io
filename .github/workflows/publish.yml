@@ -22,11 +22,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Validate migration script
         run: python3 -m py_compile scripts/import_site.py
-      - name: Import existing CAD build once
-        run: |
-          if [ ! -f site/index.html ]; then
-            python3 scripts/import_site.py
-          fi
+      - name: Import or validate the independent CAD build
+        run: python3 scripts/import_site.py
       - name: Keep an independent copy in this repository
         run: |
           git add site migration-manifest.json
