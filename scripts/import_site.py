@@ -59,7 +59,7 @@ while queue:
                 if resolved.startswith("assets/"):
                     queue.append(resolved)
         if suffix == ".css":
-            body = re.sub(r'@import\\s+(?:url\\()?["\\\']?https://fonts\\.googleapis\\.com[^;]+;', '', body)
+            body = re.sub(r"""@import\s+(?:url\()?["']?https://fonts\.googleapis\.com[^;]+;""", "", body)
             content = body.encode("utf-8")
     target = OUTPUT / local
     target.parent.mkdir(parents=True, exist_ok=True)
