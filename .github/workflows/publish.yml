@@ -23,10 +23,15 @@ jobs:
       - name: Validate migration script
         run: python3 -m py_compile scripts/import_site.py
       - name: Import or validate the independent CAD build
-        run: python3 scripts/import_site.py
+        run: |
+          python3 scripts/import_site.py
+          mkdir -p site/assets
+          cp index.html site/index.html
+          cp -R assets/. site/assets/
+          touch site/.nojekyll
       - name: Keep an independent copy in this repository
         run: |
-          git add site migration-manifest.json
+          git add site migration-manifest.json index.html assets .nojekyll
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
