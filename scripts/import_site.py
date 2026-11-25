@@ -8,7 +8,7 @@ from urllib.parse import urljoin, urlsplit, unquote
 from urllib.request import Request, urlopen
 
 SOURCE = "https://zhungou-cad-20261121.sacredanole21.chatgpt.site/"
-OUTPUT = Path("site")
+OUTPUT = Path(".")
 MAX_FILE = 32 * 1024 * 1024
 MAX_TOTAL = 64 * 1024 * 1024
 ASSET_PATH = re.compile(r"""(?:\./|/)?assets/[A-Za-z0-9_.-]+\.(?:js|css|wasm|png|jpg|jpeg|svg|webp|woff2?)""")
@@ -72,7 +72,7 @@ while queue:
                 if resolved.startswith("assets/"):
                     queue.append(resolved)
         if suffix == ".css":
-            body = re.sub(r"""@import\s*(?:url\()?["']?https://fonts\.googleapis\.com[^;]+;""", "", body)
+            body = re.sub(r"""@import\s*(?:url\(\s*)?["']https://fonts\.googleapis\.com[^"']*["']\s*\)?\s*;""", "", body)
             content = body.encode("utf-8")
     target = OUTPUT / local
     target.parent.mkdir(parents=True, exist_ok=True)
