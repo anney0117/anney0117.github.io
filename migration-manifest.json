@@ -1,25 +1,26 @@
 {
-  "source": "https://zhungou-cad-20261121.sacredanole21.chatgpt.site/",
+  "source": "source/",
+  "source_commit": "fa4127e20fabbddbfebcb288defbfe9316cd8bfb",
   "files": {
-    "index.html": {
-      "bytes": 538,
-      "sha256": "7591454fdd67e2abae8d3e40d47b019b1e224c18babd0d4f8dc3e910d1bc6554"
+    "assets/cad.worker-DxJjnS5p.js": {
+      "bytes": 419810,
+      "sha256": "eb2ce37118737b45361f5eda56c834b2a886d9fc911098fbbff183030c3b2351"
     },
-    "assets/index-BpDz3mgR.js": {
-      "bytes": 505498,
-      "sha256": "f4a86e197e293f336cfbdba7562fb9a1bfb88e302042a48c944ba326e5c70c68"
+    "assets/index-B9oKYBD9.js": {
+      "bytes": 509025,
+      "sha256": "734c96087550194f0e36f6823f8e3f677f9e668110d0e95c10146ec664ccc329"
     },
-    "assets/index-DTXiJs5M.css": {
-      "bytes": 19970,
-      "sha256": "31f6d4fa32d467a6ed0d1c6843371a3c49f795df61f089ce49cddb84aec711bf"
-    },
-    "assets/cad.worker-6KR23trK.js": {
-      "bytes": 418286,
-      "sha256": "395d0f49f2f1a08a6d5b08b38bf36f7ea57a47de21ba8596108af79ea16a0d8f"
+    "assets/index-CR_1KUHR.css": {
+      "bytes": 20367,
+      "sha256": "8da775eefd91153d3c02e7e66c4e98fe7920f1e378c202cbaa3f296f78a2f28b"
     },
     "assets/replicad_single-g5eiaENB.wasm": {
       "bytes": 22942327,
       "sha256": "a9335919fa64bfeaee3e241d3139ad134022682429c6688e20d8ca12093d33d9"
+    },
+    "index.html": {
+      "bytes": 540,
+      "sha256": "79e7e0875d37ce446ea6c711528643cda33f5a419064978c6048e89088978edd"
     }
   }
 }
